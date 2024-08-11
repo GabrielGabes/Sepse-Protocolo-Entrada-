@@ -1,0 +1,232 @@
+```{r}
+df_back = df
+df = df_back
+```
+
+```{r Defeitos da base}
+#Classificação sepse
+df$`OBSERVAÇÕES (tudo que considerar importante)`[1156]
+df$`FALHA NA CLASSIFICAÇÃO INICIAL?`[1156] = NA
+
+#Mortes
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "alta"] = "ALTA"
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "DESISTENCIA DE TRATAMENTO HOSPITALAR"] = "EVASÃO"
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "TRANSFERÊNCIA"] = NA
+```
+
+
+```{r Meses}
+library(lubridate)
+
+#### Entrada
+df$`DATA DA INCLUSÃO NO PROTOCOLO`= as.Date(df$`DATA DA INCLUSÃO NO PROTOCOLO`)
+df$mes_inclusao = month(df$`DATA DA INCLUSÃO NO PROTOCOLO`)
+
+print("Entrada ===========")
+df %>% tabyl(mes_inclusao, show_na = FALSE) %>% 
+  adorn_pct_formatting(2) %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+
+df$protocolo_inclusao = NA
+df$protocolo_inclusao[df$mes_inclusao == 5] = "Treino"
+df$protocolo_inclusao[df$mes_inclusao < 5] = "Antigo"
+df$protocolo_inclusao[df$mes_inclusao > 5] = "Novo"
+table(df$protocolo_inclusao)
+
+#### Saida
+df$`DATA  DA SAIDA  HOSPITALAR`= as.Date(df$`DATA  DA SAIDA  HOSPITALAR`)
+df$mes_saida = month(df$`DATA  DA SAIDA  HOSPITALAR`)
+
+print("Saida ===========")
+df %>% tabyl(mes_saida, show_na = FALSE) %>% 
+  adorn_pct_formatting(2) %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+
+df$protocolo_saida = NA
+df$protocolo_saida[df$mes_saida == 5] = "Treino"
+df$protocolo_saida[df$mes_saida < 5] = "Antigo"
+df$protocolo_saida[df$mes_saida > 5] = "Novo"
+table(df$protocolo_saida)
+
+#### Disfunção organica
+dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`[dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "N/A"] = NA
+df$Difuncao_pre_corr = NA
+df$Difuncao_pre_corr[df$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "SIM" & df$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "SIM"] = "Correto"
+df$Difuncao_pre_corr[df$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "NÃO" & df$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "NÃO"] = "Correto"
+df$Difuncao_pre_corr[df$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "SIM" & df$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "NÃO"] = "Incorreto"
+df$Difuncao_pre_corr[df$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "NÃO" & df$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "SIM"] = "Incorreto"
+```
+O protocolo falha mais na classificação de sepse ? ================================================================
+```{r Comparativo por data}
+capture(table(df$`FALHA NA CLASSIFICAÇÃO INICIAL?`, df$protocolo_inclusao))
+
+dff = df %>% filter(protocolo_inclusao != "Treino")
+table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao)
+
+dff %>% tabyl(`FALHA NA CLASSIFICAÇÃO INICIAL?`, protocolo_inclusao, show_na = FALSE) %>% 
+  adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+  adorn_pct_formatting(2) %>% adorn_ns %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+```
+
+```{r Teste estatisticos}
+capture_p(prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))$p.value)
+capture_p(prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao), alternative = "less")$p.value)
+
+capture_p(chisq.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))$p.value)
+capture_p(fisher.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))$p.value)
+```
+
+```{r}
+grafi = dff %>% filter(!is.na(`FALHA NA CLASSIFICAÇÃO INICIAL?`)) %>% group_by(protocolo_inclusao, `FALHA NA CLASSIFICAÇÃO INICIAL?`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`), Freq, label=Freq, fill=as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_inclusao) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Falha na classificação inicial") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dff$protocolo_inclusao, dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`)$p.value),
+                         " , (Teste Z unilateral a esquerda) = ", retorne_p(prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Não","Sim"))
+
+ggsave("protocolo_inclusao.png", height=10, width=15, units="cm", dpi= 600)
+```
+Será que houve mais mortes com o protocolo novo ?================================================================
+```{r Tabelas contagens}
+table(df$`DESFECHO FINAL`, df$protocolo_saida)
+
+dff = df %>% filter(protocolo_saida != "Treino")
+dff = df %>% filter(`DESFECHO FINAL` != "INTERNADO")
+dff = dff %>% filter(`protocolo_saida` != "Treino")
+dff = dff %>% filter(`DESFECHO FINAL` != "EVASÃO")
+dff = dff %>% filter(`DESFECHO FINAL` != "DESISTÊNCIA DE TRATAMENTO HOSPITALAR")
+dff = dff %>% filter(DEFINIÇÃO == "CHOQUE SÉPTICO" | DEFINIÇÃO == "SEPSE")
+
+capture(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))
+
+dff %>% tabyl(`DESFECHO FINAL`, protocolo_saida, show_na = FALSE) %>% 
+  adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>%
+  adorn_pct_formatting(2) %>% adorn_ns %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+```
+
+```{r}
+capture_p(prop.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))$p.value)
+capture_p(prop.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida), alternative = "less")$p.value)
+
+capture_p(chisq.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))$p.value)
+capture_p(fisher.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))$p.value)
+```
+
+```{r}
+grafi = dff %>% group_by(protocolo_saida, `DESFECHO FINAL`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(`DESFECHO FINAL`), Freq, label=Freq, fill=as.factor(`DESFECHO FINAL`))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_saida) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Mortes") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dff$protocolo_saida, dff$`DESFECHO FINAL`)$p.value),
+                         " , (Teste Z unilateral a esquerda) = ", retorne_p(prop.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Não","Sim"))
+
+ggsave("protocolo_saida.png", height=10, width=15, units="cm", dpi= 600)
+```
+Houve mais captação de disfunção organica ?================================================================
+```{r Contagens}
+dff = df %>% filter(DEFINIÇÃO == "CHOQUE SÉPTICO" | DEFINIÇÃO == "SEPSE")
+
+table(dff$Difuncao_pre_corr, dff$protocolo_saida)
+
+dff = dff %>% filter(protocolo_saida != "Treino")
+
+capture(table(dff$Difuncao_pre_corr, dff$protocolo_saida))
+
+dff %>% tabyl(Difuncao_pre_corr, protocolo_saida, show_na = FALSE) %>% 
+  adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>%
+  adorn_pct_formatting(2) %>% adorn_ns %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+
+```
+
+```{r}
+grafi = dff %>% filter(!is.na(Difuncao_pre_corr)) %>% group_by(protocolo_saida, Difuncao_pre_corr) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(Difuncao_pre_corr), Freq, label=Freq, fill=as.factor(Difuncao_pre_corr))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_saida) + theme_bw() + 
+  theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Classificação de disfunção organica") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dff$protocolo_saida,
+                                                                            dff$Difuncao_pre_corr)$p.value),
+                         " , (Teste Z unilateral a esquerda) = ", retorne_p(prop.test(table(dff$Difuncao_pre_corr,
+                                                                             dff$protocolo_saida), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Correta","Incorreto"))
+
+ggsave("protocolo_saida_dis.png", height=10, width=15, units="cm", dpi= 600)
+```
+```{r}
+capture_p(prop.test(table(dff$Difuncao_pre_corr, dff$protocolo_saida))$p.value)
+capture_p(prop.test(table(dff$Difuncao_pre_corr, dff$protocolo_saida), alternative = "less")$p.value)
+
+capture_p(chisq.test(table(dff$Difuncao_pre_corr, dff$protocolo_saida))$p.value)
+capture_p(fisher.test(table(dff$Difuncao_pre_corr, dff$protocolo_saida))$p.value)
+```
+####
+```{r}
+ggplot(df, aes(x=`DATA DA INCLUSÃO NO PROTOCOLO`), fill=protocolo_inclusao) + geom_line(stat = "bin")
+
+data_breaks <- data.frame(start = as.Date(c("2022-01-01", "2022-05-01", "2022-06-01")),
+                          end = as.Date(c("2022-04-30", "2022-05-31", "2022-10-10")),
+                          colors = c("1.Antigo","2.Treino","3.Novo"))
+
+ggplot(df, aes(x=`DATA DA INCLUSÃO NO PROTOCOLO`), fill=protocolo_inclusao) + 
+  geom_line(stat = "bin") + 
+  geom_rect(data = data_breaks, aes(NULL, NULL, xmin = start, xmax = end, 
+                                    ymin = -Inf, ymax = Inf, fill = colors), alpha = 0.5) +
+  theme_classic()+theme_light()+ theme(axis.text.x = element_text(angle = 75, vjust = .5)) +
+  scale_x_date(date_breaks = "1 month") + labs(x="Data", y="Quantidade")
+
+ggsave("quantidade de protocolo.png", height=10, width=15, units="cm", dpi= 600)
+
+
+```
+
+```{r}
+df_inc_antigo = df %>% filter(protocolo_inclusao == "Antigo")
+df_inc_antigo = as.data.frame(c(table(df_inc_antigo$mes_inclusao)))
+capture(summary(df_inc_antigo$`c(table(df_inc_antigo$mes_inclusao))`))
+capture(sd(df_inc_antigo$`c(table(df_inc_antigo$mes_inclusao))`))
+
+shapiro.test(df_inc_antigo$`c(table(df_inc_antigo$mes_inclusao))`)
+x = df_inc_antigo$`c(table(df_inc_antigo$mes_inclusao))`
+
+df_inc_novo = df %>% filter(protocolo_inclusao == "Novo")
+df_inc_novo = as.data.frame(c(table(df_inc_novo$mes_inclusao)))
+capture(summary(df_inc_novo$`c(table(df_inc_novo$mes_inclusao))`))
+capture(sd(df_inc_novo$`c(table(df_inc_novo$mes_inclusao))`))
+
+shapiro.test(df_inc_novo$`c(table(df_inc_novo$mes_inclusao))`)
+y = df_inc_novo$`c(table(df_inc_novo$mes_inclusao))`
+
+
+t.test(x, y, alternative = "two.sided", var.equal = FALSE)
+wilcox.test(x, y)
+```
+```{r}
+grafi = dff %>% group_by(mes_inclusao) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi = df %>% tabyl(mes_inclusao, show_na = FALSE) %>% 
+    adorn_pct_formatting(2) %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+grafi = as.data.frame(grafi)
+grafi$n = as.numeric(grafi$n)
+
+data_breaks <- data.frame(start = c(01, 06),
+                          end = c(04, 10),
+                          colors = c("1.Antigo","3.Novo"))
+
+
+ggplot(grafi, aes(mes_inclusao, n, label=n)) + geom_point() + geom_line() + 
+  geom_rect(data = data_breaks, aes(NULL, NULL, xmin = start, xmax = end, 
+                                    ymin = -Inf, ymax = Inf, fill = colors), alpha = 0.5)
+
+```
+

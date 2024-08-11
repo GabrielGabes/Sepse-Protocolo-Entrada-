@@ -1,0 +1,264 @@
+
+
+
+```{r}
+prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))
+prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao), alternative = "less")
+
+chisq.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))
+fisher.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))
+
+capture(dff %>% tabyl(`FALHA NA CLASSIFICAÇÃO INICIAL?`, protocolo_inclusao, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print())
+
+grafi = dff %>% group_by(protocolo_inclusao, `FALHA NA CLASSIFICAÇÃO INICIAL?`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`), Freq, label=Freq, fill=as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_inclusao) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Falha na classificação inicial") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dff$protocolo_inclusao, dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`)$p.value),
+                         " , (Teste Z {less}) = ", retorne_p(prop.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Não","Sim"))
+
+ggsave("protocolo_inclusao.png", height=10, width=15, units="cm", dpi= 600)
+
+#####
+
+#capture(table(df$`FALHA NA CLASSIFICAÇÃO INICIAL?`, df$mes_inclusao))
+#conti('FALHA NA CLASSIFICAÇÃO INICIAL?', 'mes_inclusao')
+#ggplot(df, aes(x=`DATA DA INCLUSÃO NO PROTOCOLO`, fill=`FALHA NA CLASSIFICAÇÃO INICIAL?`)) + geom_area(stat = "bin", position = "identity", alpha =0.4)
+
+tabela = df %>% filter(!is.na(`FALHA NA CLASSIFICAÇÃO INICIAL?`)) %>% group_by(mes_inclusao, `FALHA NA CLASSIFICAÇÃO INICIAL?`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup() 
+
+ggplot(tabela, aes(as.factor(mes_inclusao), Freq, label=Freq, fill=as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`))) +
+  geom_col(show.legend = FALSE, color="black", position = "dodge") #+ geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1))
+#identity
+ggsave("protocolo_inclusao.png", height=10, width=15, units="cm", dpi= 600)
+
+ggplot(tabela, aes(as.factor(mes_inclusao), Freq, label=Freq, color=as.factor(`FALHA NA CLASSIFICAÇÃO INICIAL?`))) +
+  geom_point(show.legend = FALSE) + geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + theme(legend.position="none")
+
+
+#####
+
+df$`OBSERVAÇÕES (tudo que considerar importante)`[1156]
+df$`FALHA NA CLASSIFICAÇÃO INICIAL?`[1156] = "SIM"
+conti('FALHA NA CLASSIFICAÇÃO INICIAL?', 'mes_inclusao')
+df %>% tabyl(`FALHA NA CLASSIFICAÇÃO INICIAL?`, protocolo_inclusao, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print()
+dff = df %>% filter(protocolo_inclusao != "Treino")
+chisq.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))
+
+
+print("-")
+
+df$`FALHA NA CLASSIFICAÇÃO INICIAL?`[1156] = NA
+conti('FALHA NA CLASSIFICAÇÃO INICIAL?', 'mes_inclusao')
+df %>% tabyl(`FALHA NA CLASSIFICAÇÃO INICIAL?`, protocolo_inclusao, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print()
+dff = df %>% filter(protocolo_inclusao != "Treino")
+chisq.test(table(dff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dff$protocolo_inclusao))
+```
+
+
+```{r Será que houve mais mortes com o protocolo novo ?}
+table(as.factor(df$`DESFECHO FINAL`))
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "alta"] = "ALTA"
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "DESISTENCIA DE TRATAMENTO HOSPITALAR"] = "EVASÃO"
+df$`DESFECHO FINAL`[df$`DESFECHO FINAL` == "TRANSFERÊNCIA"] = NA
+levels(as.factor(df$`DESFECHO FINAL`))
+table(df$`DESFECHO FINAL`)
+
+dff = df %>% filter(`DESFECHO FINAL` != "INTERNADO")
+dff = df %>% filter(`protocolo_saida` != "Treino")
+
+capture(dff %>% tabyl(`FALHA NA CLASSIFICAÇÃO INICIAL?`, mes_saida, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print())
+
+capture(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))
+chisq.test(table(dff$`DESFECHO FINAL`, dff$protocolo_saida))
+
+#####
+dfff = dff %>% filter(`DESFECHO FINAL` != "EVASÃO")
+dfff = dfff %>% filter(`DESFECHO FINAL` != "DESISTÊNCIA DE TRATAMENTO HOSPITALAR")
+dfff = dfff %>% filter(DEFINIÇÃO == "CHOQUE SÉPTICO" | DEFINIÇÃO == "SEPSE")
+
+table(dfff$`DESFECHO FINAL`, dfff$protocolo_saida)
+
+capture(dfff %>% tabyl(`DESFECHO FINAL`, protocolo_saida, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print())
+
+chisq.test(table(dfff$`DESFECHO FINAL`, dfff$protocolo_saida))
+prop.test(table(dfff$`DESFECHO FINAL`, dfff$protocolo_saida), alternative = "less")
+fisher.test(table(dfff$`FALHA NA CLASSIFICAÇÃO INICIAL?`, dfff$protocolo_inclusao))
+
+grafi = dfff %>% group_by(protocolo_saida, `DESFECHO FINAL`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(`DESFECHO FINAL`), Freq, label=Freq, fill=as.factor(`DESFECHO FINAL`))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_saida) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Mortes") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dfff$protocolo_saida, dfff$`DESFECHO FINAL`)$p.value),
+                         " , (Teste Z {less}) = ", retorne_p(prop.test(table(dfff$`DESFECHO FINAL`, dfff$protocolo_saida), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Não","Sim"))
+
+ggsave("protocolo_saida.png", height=10, width=15, units="cm", dpi= 600)
+
+```
+
+```{r O fluxo foi realmente seguido ?}
+library(tidyverse)
+library(ggalluvial)
+
+df$`qSOFA > 2 POSITIVO?`[df$`qSOFA > 2 POSITIVO?` == "NÃOI"] = "NÃO"
+df$`DISFUNÇÃO NA ABORDAGEM INICIAL`[df$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "NÃOI"] = "NÃO"
+
+df %>% group_by(protocolo_inclusao, `qSOFA > 2 POSITIVO?`, `PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`, `FALHA NA CLASSIFICAÇÃO INICIAL?`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+
+table(df$`DISFUNÇÃO NA ABORDAGEM INICIAL`, df$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)
+```
+
+```{r}
+grafi = dfff %>% group_by(protocolo, `DESFECHO FINAL`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+ggplot(data = grafi, 
+       aes(axis1 = protocolo,
+             axis2 = `DESFECHO FINAL`,
+             y = Freq)) +
+  geom_alluvium(aes(fill = `DESFECHO FINAL`)) +
+  geom_stratum() +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum)))
+
+####
+grafi = dfff %>% filter(!is.na(`FALHA NA CLASSIFICAÇÃO INICIAL?`)) %>% group_by(protocolo,`FALHA NA CLASSIFICAÇÃO INICIAL?` , `DESFECHO FINAL`) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(`DESFECHO FINAL`), Freq, label=Freq, fill=as.factor(`DESFECHO FINAL`))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(`FALHA NA CLASSIFICAÇÃO INICIAL?`~protocolo) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Mortes") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor (Qui-Quadrado) = ", retorne_p(chisq.test(dfff$protocolo, dfff$`DESFECHO FINAL`)$p.value),
+                         " ; Teste Z (less) = ", retorne_p(prop.test(table(dfff$`DESFECHO FINAL`, dfff$protocolo), alternative = "less")$p.value))) +
+  scale_x_discrete(labels = c("Não","Sim"))
+
+ggplot(data = grafi, 
+       aes(axis1 = protocolo,
+           axis2 = `FALHA NA CLASSIFICAÇÃO INICIAL?`,
+           axis3 = `DESFECHO FINAL`,
+             y = Freq)) +
+  geom_alluvium(aes(fill = `DESFECHO FINAL`)) +
+  geom_stratum() +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum)))
+```
+
+```{r DISFUNÇÃO ORGANICA}
+
+dff = df %>% filter(DEFINIÇÃO == "CHOQUE SÉPTICO" | DEFINIÇÃO == "SEPSE")
+
+table(dff$`DISFUNÇÃO NA ABORDAGEM INICIAL`)
+table(dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)
+
+dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`[dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "N/A"] = NA
+
+table(dff$`DISFUNÇÃO NA ABORDAGEM INICIAL`, dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)
+table(dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`, dff$`DISFUNÇÃO NA ABORDAGEM INICIAL`)
+
+dff %>% tabyl(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`, `DISFUNÇÃO NA ABORDAGEM INICIAL`, protocolo_inclusao, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print()
+
+dff$Difuncao_pre_corr = NA
+dff$Difuncao_pre_corr[dff$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "SIM" & dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "SIM"] = "Correto"
+dff$Difuncao_pre_corr[dff$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "NÃO" & dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "NÃO"] = "Correto"
+dff$Difuncao_pre_corr[dff$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "SIM" & dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "NÃO"] = "Incorreto"
+dff$Difuncao_pre_corr[dff$`DISFUNÇÃO NA ABORDAGEM INICIAL` == "NÃO" & dff$`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == "SIM"] = "Incorreto"
+
+dff %>% tabyl(Difuncao_pre_corr, protocolo_inclusao, show_na = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% adorn_percentages("col") %>% 
+    adorn_pct_formatting(2) %>% adorn_ns %>% print() %>% write_clip(dec = ",", col.names = TRUE)
+
+dff = dff %>% filter(protocolo_inclusao != "Treino")
+table(dff$Difuncao_pre_corr, dff$protocolo_inclusao)
+retorne_p(chisq.test(table(dff$Difuncao_pre_corr, dff$protocolo_inclusao))$p.value)
+retorne_p(prop.test(table(dff$Difuncao_pre_corr, dff$protocolo_inclusao), alternative = "less")$p.value)
+retorne_p(fisher.test(table(dff$Difuncao_pre_corr, dff$protocolo_inclusao))$p.value)
+
+View(dff[c('protocolo_inclusao','DISFUNÇÃO NA ABORDAGEM INICIAL','PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)','Difuncao_pre_corr')])
+
+###
+grafi = dff %>% filter(!is.na(Difuncao_pre_corr)) %>% group_by(protocolo_inclusao, Difuncao_pre_corr) %>% summarise(n = n()) %>% mutate(Freq = round(n/sum(n), 10)) %>% ungroup()
+grafi
+
+ggplot(grafi, aes(as.factor(Difuncao_pre_corr), Freq, label=Freq, fill=as.factor(Difuncao_pre_corr))) + geom_col(show.legend = FALSE, color="black") + 
+  geom_text(aes(y=Freq, label = scales::percent(Freq), vjust=-0.1)) + scale_y_continuous(labels = scales::percent) +
+  facet_grid(~protocolo_inclusao) + theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="Classificação de disfunção organica") + 
+  scale_y_continuous(limits = c(0, 1), breaks=seq(from = 0, to = 1, by = 0.25)) +
+  labs(subtitle = paste0("P-Valor: (Qui-Quadrado) = ", retorne_p(chisq.test(dff$Difuncao_pre_corr, dff$protocolo_inclusao)$p.value),
+                         " , (Teste Z {less}) = ", retorne_p(prop.test(table(dff$Difuncao_pre_corr, dff$protocolo_inclusao), alternative = "less")$p.value))) + scale_x_discrete(labels = c("Incorreto","Correta"))
+
+ggsave("disfu.png", height=10, width=15, units="cm", dpi= 600)
+```
+
+```{r}
+dff %>% filter(!is.na(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)) %>% filter(protocolo_inclusao == "Antigo") %>%
+  group_by(`DISFUNÇÃO NA ABORDAGEM INICIAL`, `PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`) %>%
+  summarise(n = n()) %>% 
+  mutate(freq = round(n/sum(n)*100, 2)) %>% 
+  ungroup()
+
+GRAFI = dff %>% filter(!is.na(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)) %>% filter(protocolo_inclusao == "Novo") %>%
+  group_by(`DISFUNÇÃO NA ABORDAGEM INICIAL`,`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`) %>%
+  summarise(n = n()) %>% 
+  mutate(freq = round(n/sum(n)*100, 2)) %>% 
+  ungroup()
+
+df_te = dff %>% filter(!is.na(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`)) %>% filter(protocolo_inclusao == "Novo")
+
+metricas = c("Sensitivity","Specificity", "Pos Pred Value", "Neg Pred Value", "Accuracy")
+GRAFI = cbind(GRAFI, metricas)
+
+ggplot(GRAFI, aes(as.factor()))
+
+d1 = df_te %>% group_by(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`, `DISFUNÇÃO NA ABORDAGEM INICIAL`) %>% #Sensibilidade e Especificidade
+  summarise(n = n()) %>% 
+  mutate(freq = round(n/sum(n)*100, 2)) %>% 
+  ungroup() %>% filter(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == `DISFUNÇÃO NA ABORDAGEM INICIAL`)
+
+d2 = BASE %>% group_by(`DISFUNÇÃO NA ABORDAGEM INICIAL`, `PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`) %>% #Pos e Neg
+    summarise(n = n()) %>% 
+    mutate(freq = round(n/sum(n)*100, 2)) %>% 
+    ungroup() %>% filter(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == .data[[COLUNA]])
+
+  d3 = df %>% group_by(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)`, .data[[COLUNA]]) %>% #Accuracy 
+    summarise(n = n()) %>% 
+    mutate(freq = round(n/sum(n)*100, 2)) %>% 
+    ungroup()
+  d3 = d3 %>% mutate(freq = round(n/sum(n)*100, 2)) %>% filter(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == .data[[COLUNA]]) %>% mutate(freq = cumsum(freq)) %>% filter(`PACIENTE EVOLUIU COM DISFUNÇÃO (na reaval)` == 2)
+  d4 = rbind(d1, d2, d3)
+  d4
+  metricas = c("Sensitivity","Specificity", "Pos Pred Value", "Neg Pred Value", "Accuracy")
+  d5 = cbind(d4, metricas)
+  ggplot(d5, aes(as.factor(metricas), freq, label=freq, fill=as.factor(metricas))) +
+  geom_col(show.legend = FALSE, color = "black") + geom_text(aes(y=freq), vjust=-0.1) + theme_grey(base_size = 10) +
+  theme_bw() + theme(plot.title=element_text(face='italic'), axis.title=element_text(size=9, face='italic')) +
+  labs(x="metricas de avaliação", y="porcentagem (%)") + 
+  scale_x_discrete(limits= c("Sensitivity","Specificity","Pos Pred Value","Neg Pred Value","Accuracy")) +
+  scale_y_continuous(limits = c(0, 100), breaks=seq(from = 0, to = 100, by = 25)) + scale_fill_manual(values = hcl.colors(n=5, palette="Blues 2"))} 
+
+pptll(df_te , "DISFUNÇÃO NA ABORDAGEM INICIAL") 
+```
+
